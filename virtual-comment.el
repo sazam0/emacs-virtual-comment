@@ -534,7 +534,7 @@ When SHOULD-SORT is non-nil sort by point."
 
 (defun virtual-comment--line-at-point ()
   "Reinvent `thing-at-point line'."
-  (buffer-substring (point-at-bol) (point-at-eol)))
+  (buffer-substring (line-beginning-position) (line-end-position)))
 
 (defun virtual-comment--search (s)
   "Search for S from the beginning of buffer.
@@ -559,13 +559,13 @@ When MAKE-COMMENT-UNIT is non nil return `virtual-comment-unit'."
       (unless (string= org-target current-target)
         (when-let (found (virtual-comment--search org-target))
           (goto-char found))
-        (goto-char (point-at-bol))
+        (goto-char (line-beginning-position))
         (overlay-put ov
                      'before-string
                      (virtual-comment--make-comment-for-display
                       (overlay-get ov 'virtual-comment)
                       (current-indentation)))
-        (move-overlay ov (point-at-bol) (point-at-eol))
+        (move-overlay ov (line-beginning-position) (line-end-position))
         (overlay-put ov 'virtual-comment-target (thing-at-point 'line t))))
 
     ;; (2) if align here then (1) was not invoked
@@ -575,7 +575,7 @@ When MAKE-COMMENT-UNIT is non nil return `virtual-comment-unit'."
                    (virtual-comment--make-comment-for-display
                     (overlay-get ov 'virtual-comment)
                     (current-indentation)))
-      (move-overlay ov (point-at-bol) (point-at-eol))))
+      (move-overlay ov (line-beginning-position) (line-end-position))))
   (when make-comment-unit
     (virtual-comment-unit-create
      :point (overlay-start ov)
@@ -602,12 +602,12 @@ When MAKE-COMMENT-UNIT is non nil return `virtual-comment-unit'."
 ;; ov will be discarded and its comment will be added to the host
 ;; comment."
 ;;   (when is-after-change
-;;     (let* ((point (point-at-bol))
+;;     (let* ((point (line-beginning-position))
 ;;            (comment (overlay-get ov 'virtual-comment))
 ;;            (comment-for-display (virtual-comment--make-comment-for-display
 ;;                                  comment
 ;;                                  (current-indentation))))
-;;       (move-overlay ov point (point-at-eol))
+;;       (move-overlay ov point (line-end-position))
 ;;       (overlay-put ov 'before-string comment-for-display)
 ;;       (overlay-put ov 'virtual-comment comment))))
 
@@ -678,7 +678,7 @@ Clear all overlays and act like buffer about to close."
 (defun virtual-comment-next ()
   "Go to next/below comment."
   (interactive)
-  (if-let (point (virtual-comment--get-neighbor-cmt (point-at-eol)
+  (if-let (point (virtual-comment--get-neighbor-cmt (line-end-position)
                                                     (point-max)
                                                     #'next-overlay-change))
       (goto-char point)
@@ -688,7 +688,7 @@ Clear all overlays and act like buffer about to close."
 (defun virtual-comment-previous ()
   "Go to previous/above comment."
   (interactive)
-  (if-let (point (virtual-comment--get-neighbor-cmt (point-at-bol)
+  (if-let (point (virtual-comment--get-neighbor-cmt (line-beginning-position)
                                                     (point-min)
                                                     #'previous-overlay-change))
       (goto-char point)
@@ -727,13 +727,13 @@ Clear all overlays and act like buffer about to close."
       (let* ((indent (current-indentation))
              (org-comment (virtual-comment--get-comment-at point))
              (ov (if org-comment (virtual-comment--get-overlay-at point)
-                   (make-overlay point (point-at-eol) nil t nil))))
+                   (make-overlay point (line-end-position) nil t nil))))
         (virtual-comment--ov-ensure ov comment target indent)))))
 
 (defun virtual-comment--append (str)
   "Append SRT to comment.
 Won't prepend new line if comment is nil"
-  (let* ((point (point-at-bol))
+  (let* ((point (line-beginning-position))
          (indent (current-indentation))
          (target (thing-at-point 'line t))
          (org-comment (virtual-comment--get-comment-at point))
@@ -742,7 +742,7 @@ Won't prepend new line if comment is nil"
                     str))
          ;; must get existing overlay when comment is non-nil
          (ov (if org-comment (virtual-comment--get-overlay-at point)
-               (make-overlay point (point-at-eol) nil t nil))))
+               (make-overlay point (line-end-position) nil t nil))))
     (virtual-comment--ov-ensure ov comment target indent)
     (virtual-comment--update-data-async-maybe)))
 
@@ -772,7 +772,7 @@ Won't prepend new line if comment is nil"
 (defun virtual-comment-goto-location ()
   "Open location in other window."
   (interactive)
-  (when-let* ((cmt (virtual-comment--get-comment-at (point-at-bol)))
+  (when-let* ((cmt (virtual-comment--get-comment-at (line-beginning-position)))
               (candidates (virtual-comment--get-locations cmt)))
     (if (= (length candidates) 1)
         (virtual-comment--goto-location (car candidates))
@@ -782,7 +782,7 @@ Won't prepend new line if comment is nil"
 (defun virtual-comment-make-old ()
   "Add or edit comment at current line."
   (interactive)
-  (let* ((point (point-at-bol))
+  (let* ((point (line-beginning-position))
          (indent (current-indentation))
          (target (thing-at-point 'line t))
          (org-comment (virtual-comment--get-comment-at point))
@@ -791,7 +791,7 @@ Won't prepend new line if comment is nil"
                    org-comment))
          ;; must get existing overlay when comment is non-nil
          (ov (if org-comment (virtual-comment--get-overlay-at point)
-               (make-overlay point (point-at-eol) nil t nil))))
+               (make-overlay point (line-end-position) nil t nil))))
     (if (> (length comment) 0)
         (virtual-comment--ov-ensure ov comment target indent)
       (delete-overlay ov))
@@ -803,12 +803,12 @@ Won't prepend new line if comment is nil"
 (defun virtual-comment-make ()
   "Add or edit comment at current line."
   (interactive)
-  (let* ((point (point-at-bol))
+  (let* ((point (line-beginning-position))
          (indent (current-indentation))
          (target (thing-at-point 'line t))
          (org-comment (virtual-comment--get-comment-at point))
          (ov (if org-comment (virtual-comment--get-overlay-at point)
-               (make-overlay point (point-at-eol) nil t nil)))
+               (make-overlay point (line-end-position) nil t nil)))
          (buffer (current-buffer)))
     (select-window (split-window-vertically -4))
     (switch-to-buffer (generate-new-buffer "*virtual-comment-make*"))
@@ -906,7 +906,7 @@ Find the overlay for this POINT and delete it. Update the store."
   "Delete comments of this current line.
 The comment then can be pasted with `virtual-comment-paste'."
   (interactive)
-  (let ((point (point-at-bol)))
+  (let ((point (line-beginning-position)))
     (virtual-comment--delete-comment-at point))
   (virtual-comment--update-data-async-maybe))
 
@@ -926,13 +926,13 @@ The comment then can be pasted with `virtual-comment-paste'."
                    target)
       (move-overlay virtual-comment-deleted-overlay
                     point
-                    (point-at-eol)))))
+                    (line-end-position)))))
 
 ;;;###autoload
 (defun virtual-comment-paste ()
   "Paste comment."
   (interactive)
-  (virtual-comment--paste-at (point-at-bol)
+  (virtual-comment--paste-at (line-beginning-position)
                              (current-indentation)
                              (thing-at-point 'line t))
   (virtual-comment--update-data-async-maybe))
